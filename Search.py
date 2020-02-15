@@ -120,3 +120,19 @@ class ShortestPathProblem(Problem):
         """ Returns the distance from city 'state' to city 'res' """
         return [dist for city,dist in self.map[state] if city == state ]
 
+class Node:
+    """ A class to represent a node in a search tree.
+    
+    Attributes:
+        state: the state in the state space to which the node corresponds
+        parent: the node in the search tree that generated this node
+        action: the action that was applied to the parent to generate the node 
+        path_cost: the cost of the path from the initial state to the node
+    """
+
+    def __init__(self,state,parent,action,path_cost):
+        """ Inits the Node with the provided attributes """
+        self.state = state
+        self.parent = parent
+        self.action = action
+        self.path_cost = path_cost
