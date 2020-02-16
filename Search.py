@@ -130,7 +130,7 @@ class Node:
         path_cost: the cost of the path from the initial state to the node
     """
 
-    def __init__(self, state, parent, action, path_cost):
+    def __init__(self, state, parent=None, action=None, path_cost=0):
         """ Inits the Node with the provided attributes """
         self.state = state
         self.parent = parent
@@ -220,5 +220,55 @@ class HashPriorityQueue:
         """ Returns whether or not a state is already in the queue """
         return state in self.hash
 
-if __name__ == "__main__" do:
+def depth_limited_search(problem, limit):
+    """ Depth Limited Search
     
+    A function that implements Depth Limited Search in recursive fashion.
+    
+    To peform Regular Depth First Search on a finite state space, 'limit' 
+    should be set to float('inf') 
+    
+    Args:
+        problem: The Search problem on which to implement Depth Limited Search.
+            Must implement the abstract class 'Problem'.
+        limit: Depth limit until which to search the state space.
+
+    Returns:
+        Prints the following information to terminal if a goal is found:
+
+        - The number of nodes expanded.
+        - The maximum size of the queue during search.
+        - The final path length.
+        - The final path represented as a sequence of cities.
+
+        If a goal is not found, it returns either "cutoff" or "failure".
+    """
+
+    def recursive_dls(node, problem, limit):
+        """ A helper function for performing DLS recursively 
+        
+        Args:
+            node: The node from which to perform DLS
+            problem: ...
+            limit: ...
+        """
+
+        if problem.goal_test(node.state):
+            return solution(node)
+        elif limit == 0:
+            return "cutoff"
+        else:
+            cutoff_occured = False
+            for action in problem.actions(node.state):
+                child = child_node(problem, node, action)
+                result = recursive_dls(child, problem, limit - 1)
+                if result == "cutoff":
+                    cutoff_occured = True
+                elif result != "failure":
+                    return result
+            if cutoff_occured:
+                return "cutoff"
+            else:
+                return "failure"
+
+    print(resursive_dls(Node(problem.initial_state), problem, limit))
