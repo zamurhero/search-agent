@@ -114,7 +114,7 @@ class ShortestPathProblem(Problem):
         """ Returns boolean indicating whether given 'state' is the 
             destination 
         """
-        return (state == self.goal_test)
+        return (state == self.goal_state)
 
     def step_cost(self, state, action, res):
         """ Returns the distance from city 'state' to city 'res' """
@@ -255,7 +255,7 @@ def depth_limited_search(problem, limit):
         else:
             return solution(node.parent) + " - " + node.state
 
-    def recursive_dls(node, problem, limit):
+    def recursive_dls(node, problem, limit, expl):
         """ A helper function for performing DLS recursively 
         
         Args:
@@ -269,20 +269,23 @@ def depth_limited_search(problem, limit):
         elif limit == 0:
             return "cutoff"
         else:
+            expl.add(node.state)
             cutoff_occured = False
             for action in problem.actions(node.state):
                 child = child_node(problem, node, action)
-                result = recursive_dls(child, problem, limit - 1)
-                if result == "cutoff":
-                    cutoff_occured = True
-                elif result != "failure":
-                    return result
+                if not child.state in explored:
+                    result = recursive_dls(child, problem, limit - 1, expl)
+                    if result == "cutoff":
+                        cutoff_occured = True
+                    elif result != "failure":
+                        return result
             if cutoff_occured:
                 return "cutoff"
             else:
                 return "failure"
-
-    print(recursive_dls(Node(problem.initial_state), problem, limit))
+    
+    explored = set()
+    print(recursive_dls(Node(problem.initial_state), problem, limit, explored))
 
 
 if __name__ == "__main__":
@@ -343,6 +346,10 @@ if __name__ == "__main__":
                 new_d[city] = [(key,dist)]
             else:
                 new_d[city].append((key,dist))
-    shortest_path_problem = ShortestPathProblem(new_d, "austin", "houston")
-    print(shortest_path_problem.step_cost("austin", "houston", "houston"))
-    # depth_limited_search(shortest_path_problem, 1000)
+    for i in new_d:
+        for j in new_d:
+            if i!=j:
+                shortest_path_problem = ShortestPathProblem(new_d, i, j)
+                depth_limited_search(shortest_path_problem, 1000)
+            print("\n")
+    
