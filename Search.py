@@ -118,7 +118,9 @@ class ShortestPathProblem(Problem):
 
     def step_cost(self, state, action, res):
         """ Returns the distance from city 'state' to city 'res' """
-        return [dist for city, dist in self.roadmap[state] if city == state]
+        for city, dist in self.roadmap[state]: 
+            if city == res:
+                return dist
 
 class Node:
     """ A class to represent a node in a search tree.
@@ -151,10 +153,10 @@ def child_node(problem, parent, action):
         the resulting child node
     """
     
-    if problem is not Problem:
-        raise TypeError("First argument must implement abstract class Problem")
+    # if problem is not Problem:
+    #     raise TypeError("First argument must implement abstract class Problem")
     state = problem.result(parent.state, action)
-    path_cost = parent.path_cost + problem.step_cost(parent.state, action)
+    path_cost = parent.path_cost + problem.step_cost(parent.state, action, state)
     child = Node(state, parent, action, path_cost)
     return child
 
@@ -280,4 +282,67 @@ def depth_limited_search(problem, limit):
             else:
                 return "failure"
 
-    print(resursive_dls(Node(problem.initial_state), problem, limit))
+    print(recursive_dls(Node(problem.initial_state), problem, limit))
+
+
+if __name__ == "__main__":
+    d = {"albanyNY": [("montreal",226), ("boston",166), ("rochester",148)], 
+    "albanyGA": [("tallahassee",120), ("macon",106)], "albuquerque": 
+    [("elPaso",267), ("santaFe",61)], "atlanta": [("macon",82), 
+    ("chattanooga",117)], "augusta": [("charlotte",161), ("savannah",131)], 
+    "austin": [("houston",186), ("sanAntonio",79)], "bakersfield": 
+    [("losAngeles",112), ("fresno",107)], "baltimore": [("philadelphia",102), 
+    ("washington",45)], "batonRouge": [("lafayette",50), ("newOrleans",80)], 
+    "beaumont": [("houston",69), ("lafayette",122)], "boise": [("saltLakeCity",349),
+    ("portland",428)], "boston": [("providence",51)], "buffalo": [("toronto",105), 
+    ("rochester",64), ("cleveland",191)], "calgary": [("vancouver",605), 
+    ("winnipeg",829)], "charlotte": [("greensboro",91)], "chattanooga": 
+    [("nashville",129)], "chicago": [("milwaukee",90), ("midland",279)], 
+    "cincinnati": [("indianapolis",110), ("dayton",56)], "cleveland": 
+    [("pittsburgh",157), ("columbus",142)], "coloradoSprings": [("denver",70), 
+    ("santaFe",316)], "columbus": [("dayton",72)], "dallas": [("denver",792), 
+    ("mexia",83)], "daytonaBeach": [("jacksonville",92), ("orlando",54)], 
+    "denver": [("wichita",523), ("grandJunction",246)], "desMoines": 
+    [("omaha",135), ("minneapolis",246)], "elPaso": [("sanAntonio",580), 
+    ("tucson",320)], "eugene": [("salem",63), ("medford",165)], "europe": 
+    [("philadelphia",3939)], "ftWorth": [("oklahomaCity",209)], "fresno": 
+    [("modesto",109)], "grandJunction": [("provo",220)], "greenBay": 
+    [("minneapolis",304), ("milwaukee",117)], "greensboro": [("raleigh",74)], 
+    "houston": [("mexia",165)], "indianapolis": [("stLouis",246)], 
+    "jacksonville": [("savannah",140), ("lakeCity",113)], "japan": 
+    [("pointReyes",5131), ("sanLuisObispo",5451)], "kansasCity": [("tulsa",249), 
+    ("stLouis",256), ("wichita",190)], "keyWest": [("tampa",446)], "lakeCity": 
+    [("tampa",169), ("tallahassee",104)], "laredo": [("sanAntonio",154), 
+    ("mexico",741)], "lasVegas": [("losAngeles",275), ("saltLakeCity",486)], 
+    "lincoln": [("wichita",277), ("omaha",58)], "littleRock": [("memphis",137), 
+    ("tulsa",276)], "losAngeles": [("sanDiego",124), ("sanLuisObispo",182)], 
+    "medford": [("redding",150)], "memphis": [("nashville",210)], "miami": 
+    [("westPalmBeach",67)], "midland": [("toledo",82)], "minneapolis": 
+    [("winnipeg",463)], "modesto": [("stockton",29)], "montreal": [("ottawa",132)],
+    "newHaven": [("providence",110), ("stamford",92)], "newOrleans": 
+    [("pensacola",268)], "newYork": [("philadelphia",101)], "norfolk": 
+    [("richmond",92), ("raleigh",174)], "oakland": [("sanFrancisco",8), 
+    ("sanJose",42)], "oklahomaCity": [("tulsa",105)], "orlando": 
+    [("westPalmBeach",168), ("tampa",84)], "ottawa": [("toronto",269)], 
+    "pensacola": [("tallahassee",120)], "philadelphia": [("pittsburgh",319), 
+    ("newYork",101), ("uk1",3548)], "philadelphia": [("uk1",3548)], "phoenix": 
+    [("tucson",117), ("yuma",178)], "pointReyes": [("redding",215), 
+    ("sacramento",115)], "portland": [("seattle",174), ("salem",47)], 
+    "reno": [("saltLakeCity",520), ("sacramento",133)], "richmond": 
+    [("washington",105)], "sacramento": [("sanFrancisco",95), ("stockton",51)], 
+    "salinas": [("sanJose",31), ("sanLuisObispo",137)], "sanDiego": 
+    [("yuma",172)], "saultSteMarie": [("thunderBay",442), ("toronto",436)], 
+    "seattle": [("vancouver",115)], "thunderBay": [("winnipeg",440)]}
+    new_d = dict()
+    for key in d:
+        if key not in new_d:
+            new_d[key] = []
+        for city,dist in d[key]:
+            new_d[key].append((city,dist))
+            if city not in new_d:
+                new_d[city] = [(key,dist)]
+            else:
+                new_d[city].append((key,dist))
+    shortest_path_problem = ShortestPathProblem(new_d, "austin", "houston")
+    print(shortest_path_problem.step_cost("austin", "houston", "houston"))
+    # depth_limited_search(shortest_path_problem, 1000)
