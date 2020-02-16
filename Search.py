@@ -244,6 +244,15 @@ def depth_limited_search(problem, limit):
         If a goal is not found, it returns either "cutoff" or "failure".
     """
 
+    def solution(node):
+        """ Recursive function to return the sequence of actions that form the 
+            solution as a string.
+        """
+        if node.parent == None:
+            return node.state
+        else:
+            return solution(node.parent) + " - " + node.state
+
     def recursive_dls(node, problem, limit):
         """ A helper function for performing DLS recursively 
         
