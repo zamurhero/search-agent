@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from heapq import heappush, heappop
+import sys
+sys.setrecursionlimit(10000)
 class Problem(ABC):
     """ Abstract class for a Search Problem.
 
@@ -131,7 +133,6 @@ class Node:
         action: the action that was applied to the parent to generate the node 
         path_cost: the cost of the path from the initial state to the node
     """
-
     def __init__(self, state, parent=None, action=None, path_cost=0):
         """ Inits the Node with the provided attributes """
         self.state = state
@@ -152,13 +153,45 @@ def child_node(problem, parent, action):
     Returns:
         the resulting child node
     """
-    
-    # if problem is not Problem:
-    #     raise TypeError("First argument must implement abstract class Problem")
     state = problem.result(parent.state, action)
-    path_cost = parent.path_cost + problem.step_cost(parent.state, action, state)
+    path_cost = parent.path_cost + problem.step_cost(parent.state, action, 
+                                                    state)
     child = Node(state, parent, action, path_cost)
     return child
+
+class HashStack:
+    """ A data structure that combines the capabilities of a stack and a hash
+    """
+
+    def __init__(self):
+        """ Init a set to support efficient membership testing and a list that 
+            implements a stack
+        """
+        self.hash = set()
+        self.stack = []
+
+    def is_empty(self):
+        """ Returns boolean indicating whether or not stack is empty """
+        return not self.stack
+
+    def pop(self):
+        """ Returns the last inserted node among current nodes """
+        shead = self.stack.pop()
+        self.hash.remove(shead.state)
+        return shead
+
+    def insert(self, node):
+        """ Inserts a node to the end of the stack """
+        self.stack.append(node)
+        self.hash.add(node.state)
+
+    def __contains__(self, state):
+        """ Returns whether or not a state is already in the stack """
+        return state in self.hash
+
+    def __len__(self):
+        """ Returns the length of the stack """
+        return len(self.stack)
 
 class HashQueue:
     """ A data structure that combines the capabilities of a queue and a hash 
@@ -169,7 +202,7 @@ class HashQueue:
         """ Init a set to support efficient membership testing and a list that 
             implements a queue
         """
-        self.hash = {}
+        self.hash = set()
         self.queue = []
 
     def is_empty(self):
@@ -187,9 +220,13 @@ class HashQueue:
         self.queue.append(node)
         self.hash.add(node.state)
 
-    def contains(self, state):
+    def __contains__(self, state):
         """ Returns whether or not a state is already in the queue """
         return state in self.hash
+
+    def __len__(self):
+        """ Returns the length of the queue """
+        return len(self.queue)
 
 class HashPriorityQueue:
     """ A data structure that combines the capabilities of a priority queue and 
@@ -200,7 +237,7 @@ class HashPriorityQueue:
         """ Init a dict to support efficient membership testing and a list that 
             implements a priority queue
         """
-        self.hash = {}
+        self.hash = set()
         self.queue = []
 
     def is_empty(self):
@@ -218,9 +255,73 @@ class HashPriorityQueue:
         heappush(self.queue, (-priority, node)) #negative priority since minheap
         self.hash[node.state] = node.path_cost
 
-    def contains(self, state):
+    def __contains__(self, state):
         """ Returns whether or not a state is already in the queue """
         return state in self.hash
+
+    def __len__(self):
+        return len(self.queue)
+
+def solution(node):
+    """ Recursive function to return the sequence of actions that form the 
+        solution as a string.
+    """
+    if node.parent == None:
+        return node.state
+    else:
+        return solution(node.parent) + " - " + node.state
+
+def depth_first_search(problem):
+    """ Depth First Search 
+
+    An iterative implementation of Depth First Search.
+
+    The iterative version is not memory efficient as it would take O(db) memory
+    in the worst case. But it avoids the proliferation of redundant paths.
+
+    Args:
+        problem: The Search problem on which to implement Depth Limited Search.
+            Must implement the abstract class 'Problem'.
+
+    Returns:
+        Prints the following information to terminal if a goal is found:
+
+        - The number of nodes expanded.
+        - The maximum size of the LIFO queue (stack) during search.
+        - The final path length.
+        - The final path represented as a sequence of states.
+
+        If a goal is not found, it returns either "failure".
+    """
+
+    node = Node(problem.initial_state)
+    if problem.goal_test(node.state):
+        return solution(node)
+    frontier = HashStack()
+    frontier.insert(node)
+    explored = set()
+    num_nodes_exp = 0
+    max_qsize = 1
+    while True:
+        if frontier.is_empty():
+            print("failure")
+            return
+        node = frontier.pop()
+        explored.add(node.state)
+        num_nodes_exp += 1
+        for action in problem.actions(node.state):
+            child = child_node(problem, node, action)
+            if child.state not in explored and child.state not in frontier:
+                is_exp = True
+                if problem.goal_test(child.state):
+                    print(num_nodes_exp)
+                    print(max_qsize)
+                    print(child.path_cost)
+                    print(solution(child))
+                    return
+                frontier.insert(child)
+                max_qsize = max(max_qsize, len(frontier))
+                
 
 def depth_limited_search(problem, limit):
     """ Depth Limited Search
@@ -228,7 +329,11 @@ def depth_limited_search(problem, limit):
     A function that implements Depth Limited Search in recursive fashion.
     
     To peform Regular Depth First Search on a finite state space, 'limit' 
-    should be set to float('inf') 
+    should be set to float('inf').
+
+    The space complexity in the worst case for this recursive version is O(bd),
+    whereas the iterative version would take O(|E|) ≈ O(bᵈ) memroy in the worst 
+    case.
     
     Args:
         problem: The Search problem on which to implement Depth Limited Search.
@@ -236,24 +341,9 @@ def depth_limited_search(problem, limit):
         limit: Depth limit until which to search the state space.
 
     Returns:
-        Prints the following information to terminal if a goal is found:
-
-        - The number of nodes expanded.
-        - The maximum size of the queue during search.
-        - The final path length.
-        - The final path represented as a sequence of cities.
-
+        Prints the solution as a sequence of states if a goal is found:
         If a goal is not found, it returns either "cutoff" or "failure".
     """
-
-    def solution(node):
-        """ Recursive function to return the sequence of actions that form the 
-            solution as a string.
-        """
-        if node.parent == None:
-            return node.state
-        else:
-            return solution(node.parent) + " - " + node.state
 
     def recursive_dls(node, problem, limit, expl):
         """ A helper function for performing DLS recursively 
@@ -263,7 +353,6 @@ def depth_limited_search(problem, limit):
             problem: ...
             limit: ...
         """
-
         if problem.goal_test(node.state):
             return solution(node)
         elif limit == 0:
@@ -273,8 +362,8 @@ def depth_limited_search(problem, limit):
             cutoff_occured = False
             for action in problem.actions(node.state):
                 child = child_node(problem, node, action)
-                if not child.state in explored:
-                    result = recursive_dls(child, problem, limit - 1, expl)
+                if child.state not in expl:
+                    result = recursive_dls(child, problem, limit - 1, set(expl))
                     if result == "cutoff":
                         cutoff_occured = True
                     elif result != "failure":
@@ -286,7 +375,6 @@ def depth_limited_search(problem, limit):
     
     explored = set()
     print(recursive_dls(Node(problem.initial_state), problem, limit, explored))
-
 
 if __name__ == "__main__":
     d = {"albanyNY": [("montreal",226), ("boston",166), ("rochester",148)], 
@@ -336,6 +424,7 @@ if __name__ == "__main__":
     "salinas": [("sanJose",31), ("sanLuisObispo",137)], "sanDiego": 
     [("yuma",172)], "saultSteMarie": [("thunderBay",442), ("toronto",436)], 
     "seattle": [("vancouver",115)], "thunderBay": [("winnipeg",440)]}
+    # d = {'a':[('b',1),('d',1),('e',1)], 'b':[('a',1),('c',1),('d',1)], 'c':[('b',1)], 'd':[('b',1),('a',1)], 'e':[('a',1)]}
     new_d = dict()
     for key in d:
         if key not in new_d:
@@ -350,6 +439,5 @@ if __name__ == "__main__":
         for j in new_d:
             if i!=j:
                 shortest_path_problem = ShortestPathProblem(new_d, i, j)
-                depth_limited_search(shortest_path_problem, 1000)
+                depth_first_search(shortest_path_problem)
             print("\n")
-    
