@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from heapq import heappush, heappop
 import sys
 sys.setrecursionlimit(10000)
+from road_data import adj, coords, spherical
+from copy import deepcopy
 class Problem(ABC):
     """ Abstract class for a Search Problem.
 
@@ -58,6 +60,18 @@ class Problem(ABC):
         
         Returns:
             An instance of a numeric data type indicating the step cost.
+        """
+
+class InformedProblem(Problem):
+    """ Abstract class for a problem with heuristic.
+
+    Subclass of the Problem class. Has an additional 'heuristic' method to 
+    calculate heuristic of getting to the goal state from a given state.
+    """
+
+    def heuristic(self, state):
+        """ Return the  estimated cost (heuristic) of the cheapest path from 
+            the given state to a goal state
         """
 
 class ShortestPathProblem(Problem):
@@ -124,6 +138,31 @@ class ShortestPathProblem(Problem):
             if city == res:
                 return dist
 
+class ShortestPathInformedProblem(InformedProblem, ShortestPathProblem):
+    """ Shortest Problem with a heuristic. 
+    
+    Implements the InformedProblem abstract class and extends the 
+    ShortestPathProblem class.
+
+    The attributes listed below are only the ones not included in base class.
+
+    Attributes:
+        heuristic_map: A dictionary that stores the estimated cost of getting 
+            from each state in the state space to the goal.
+        Example:
+
+        {state1: heur_state_1, state2: heur_state_2, state3: heur_state_3}
+    """
+
+    def __init__(self, roadmap, initial_state, goal_state, heuristic_map):
+        """ Inits the problem with the given attributes """
+        super().__init__(roadmap, initial_state, goal_state)
+        self.heuristic_map = heuristic_map
+
+    def heuristic(self, state):
+        """ Returns the heuristic value of the given state """
+        return self.heuristic_map[state]
+
 class Node:
     """ A class to represent a node in a search tree.
     
@@ -133,12 +172,18 @@ class Node:
         action: the action that was applied to the parent to generate the node 
         path_cost: the cost of the path from the initial state to the node
     """
-    def __init__(self, state, parent=None, action=None, path_cost=0):
+    def __init__(self, state, parent=None, action=None, path_cost=0, 
+                 problem=None):
         """ Inits the Node with the provided attributes """
         self.state = state
         self.parent = parent
         self.action = action
         self.path_cost = path_cost
+        self.problem = problem
+        if self.problem:
+            self.f = self.path_cost + self.problem.heuristic(self.state)
+        else:
+            self.f = None
 
 def child_node(problem, parent, action):
     """ Given parent node, child node.
@@ -155,8 +200,8 @@ def child_node(problem, parent, action):
     """
     state = problem.result(parent.state, action)
     path_cost = parent.path_cost + problem.step_cost(parent.state, action, 
-                                                    state)
-    child = Node(state, parent, action, path_cost)
+                                                     state)
+    child = Node(state, parent, action, path_cost, problem=parent.problem)
     return child
 
 class HashStack:
@@ -237,7 +282,7 @@ class HashPriorityQueue:
         """ Init a dict to support efficient membership testing and a list that 
             implements a priority queue
         """
-        self.hash = set()
+        self.hash = dict()
         self.queue = []
 
     def is_empty(self):
@@ -246,15 +291,31 @@ class HashPriorityQueue:
 
     def pop(self):
         """ Returns node with highest priority """
-        negative_priority, node = heappop(self.queue)
+        priority, node = heappop(self.queue)
         del self.hash[node.state]
         return node
 
     def insert(self, node, priority):
         """ inserts a node into the queue according to its priority """
-        heappush(self.queue, (-priority, node)) #negative priority since minheap
+        heappush(self.queue, (priority, node)) #heappush maintains a minheap
+                                                #for maxheap -> negate priority
         self.hash[node.state] = node.path_cost
 
+    def cost(self, state):
+        """ Returns bool indicating whether or not a node in the queue has a 
+            greater path_cost than the given cost.
+        """
+        return self.hash[state]
+
+    def replace(self, new_node, priority):
+        """ Replaces the node with the given state with the given new_node. 
+        """
+        for prio, node in self.queue:
+            if node.state == new_node.state:
+                self.queue.remove((prio, node))
+                break
+        self.insert(new_node, priority)
+                
     def __contains__(self, state):
         """ Returns whether or not a state is already in the queue """
         return state in self.hash
@@ -376,60 +437,80 @@ def depth_limited_search(problem, limit):
     explored = set()
     print(recursive_dls(Node(problem.initial_state), problem, limit, explored))
 
+def a_star_search(problem):
+    """ Returns a solution or failure """
+    node = Node(problem.initial_state)
+    frontier = HashPriorityQueue()
+    frontier.insert(node, node.path_cost+problem.heuristic(node.state))
+    explored = set()
+    num_nodes_exp = 0
+    max_qsize = 1
+    while True:
+        if frontier.is_empty():
+            print("failure")
+            return
+        node = frontier.pop()
+        if problem.goal_test(node.state):
+            print(num_nodes_exp)
+            print(max_qsize)
+            print(node.path_cost)
+            print(solution(node))
+            return
+        explored.add(node.state)
+        num_nodes_exp += 1
+        for action in problem.actions(node.state):
+            child = child_node(problem, node, action)
+            if child.state not in explored and child.state not in frontier:
+                frontier.insert(child, 
+                                problem.heuristic(child.state)+child.path_cost)
+            elif (child.state in frontier and 
+                  frontier.cost(child.state) > child.path_cost):
+                frontier.replace(child, problem.heuristic(child.state)+
+                    child.path_cost)
+        max_qsize = max(max_qsize, len(frontier))
+
+def recursive_best_first_search(problem):
+    """ Returns a solution, or failure. """
+
+    def rbfs(problem, node, f_limit):
+        """ Helper function for recursion.
+
+        Returns a solution, or failure and a new f-cost limit
+        """
+        if problem.goal_test(node.state):
+            return solution(node), -1
+        successors = []
+        for action in problem.actions(node.state):
+            successors.append(child_node(problem, node, action))
+        if not successors:
+            return ("failure", float('inf'))
+        for s in successors:
+            s.f = max(s.path_cost + problem.heuristic(s.state), node.f)
+        while True:
+            min_f = float('inf')
+            for s in successors:
+                if s.f < min_f:
+                    min_f = s.f
+                    best = s
+            if best.f > f_limit:
+                return ("failure", best.f)
+            alternative = float('inf')
+            for s in successors:
+                if s.f < alternative and s.f >= min_f:
+                    alternative = s.f
+            (result, best.f) = rbfs(problem, best, min(f_limit, alternative))
+            if result != "failure":
+                return result, best.f
+
+    print(rbfs(problem, Node(problem.initial_state, problem=problem), float('inf'))[0])
+
 if __name__ == "__main__":
-    d = {"albanyNY": [("montreal",226), ("boston",166), ("rochester",148)], 
-    "albanyGA": [("tallahassee",120), ("macon",106)], "albuquerque": 
-    [("elPaso",267), ("santaFe",61)], "atlanta": [("macon",82), 
-    ("chattanooga",117)], "augusta": [("charlotte",161), ("savannah",131)], 
-    "austin": [("houston",186), ("sanAntonio",79)], "bakersfield": 
-    [("losAngeles",112), ("fresno",107)], "baltimore": [("philadelphia",102), 
-    ("washington",45)], "batonRouge": [("lafayette",50), ("newOrleans",80)], 
-    "beaumont": [("houston",69), ("lafayette",122)], "boise": [("saltLakeCity",349),
-    ("portland",428)], "boston": [("providence",51)], "buffalo": [("toronto",105), 
-    ("rochester",64), ("cleveland",191)], "calgary": [("vancouver",605), 
-    ("winnipeg",829)], "charlotte": [("greensboro",91)], "chattanooga": 
-    [("nashville",129)], "chicago": [("milwaukee",90), ("midland",279)], 
-    "cincinnati": [("indianapolis",110), ("dayton",56)], "cleveland": 
-    [("pittsburgh",157), ("columbus",142)], "coloradoSprings": [("denver",70), 
-    ("santaFe",316)], "columbus": [("dayton",72)], "dallas": [("denver",792), 
-    ("mexia",83)], "daytonaBeach": [("jacksonville",92), ("orlando",54)], 
-    "denver": [("wichita",523), ("grandJunction",246)], "desMoines": 
-    [("omaha",135), ("minneapolis",246)], "elPaso": [("sanAntonio",580), 
-    ("tucson",320)], "eugene": [("salem",63), ("medford",165)], "europe": 
-    [("philadelphia",3939)], "ftWorth": [("oklahomaCity",209)], "fresno": 
-    [("modesto",109)], "grandJunction": [("provo",220)], "greenBay": 
-    [("minneapolis",304), ("milwaukee",117)], "greensboro": [("raleigh",74)], 
-    "houston": [("mexia",165)], "indianapolis": [("stLouis",246)], 
-    "jacksonville": [("savannah",140), ("lakeCity",113)], "japan": 
-    [("pointReyes",5131), ("sanLuisObispo",5451)], "kansasCity": [("tulsa",249), 
-    ("stLouis",256), ("wichita",190)], "keyWest": [("tampa",446)], "lakeCity": 
-    [("tampa",169), ("tallahassee",104)], "laredo": [("sanAntonio",154), 
-    ("mexico",741)], "lasVegas": [("losAngeles",275), ("saltLakeCity",486)], 
-    "lincoln": [("wichita",277), ("omaha",58)], "littleRock": [("memphis",137), 
-    ("tulsa",276)], "losAngeles": [("sanDiego",124), ("sanLuisObispo",182)], 
-    "medford": [("redding",150)], "memphis": [("nashville",210)], "miami": 
-    [("westPalmBeach",67)], "midland": [("toledo",82)], "minneapolis": 
-    [("winnipeg",463)], "modesto": [("stockton",29)], "montreal": [("ottawa",132)],
-    "newHaven": [("providence",110), ("stamford",92)], "newOrleans": 
-    [("pensacola",268)], "newYork": [("philadelphia",101)], "norfolk": 
-    [("richmond",92), ("raleigh",174)], "oakland": [("sanFrancisco",8), 
-    ("sanJose",42)], "oklahomaCity": [("tulsa",105)], "orlando": 
-    [("westPalmBeach",168), ("tampa",84)], "ottawa": [("toronto",269)], 
-    "pensacola": [("tallahassee",120)], "philadelphia": [("pittsburgh",319), 
-    ("newYork",101), ("uk1",3548)], "philadelphia": [("uk1",3548)], "phoenix": 
-    [("tucson",117), ("yuma",178)], "pointReyes": [("redding",215), 
-    ("sacramento",115)], "portland": [("seattle",174), ("salem",47)], 
-    "reno": [("saltLakeCity",520), ("sacramento",133)], "richmond": 
-    [("washington",105)], "sacramento": [("sanFrancisco",95), ("stockton",51)], 
-    "salinas": [("sanJose",31), ("sanLuisObispo",137)], "sanDiego": 
-    [("yuma",172)], "saultSteMarie": [("thunderBay",442), ("toronto",436)], 
-    "seattle": [("vancouver",115)], "thunderBay": [("winnipeg",440)]}
     # d = {'a':[('b',1),('d',1),('e',1)], 'b':[('a',1),('c',1),('d',1)], 'c':[('b',1)], 'd':[('b',1),('a',1)], 'e':[('a',1)]}
     new_d = dict()
-    for key in d:
+    for key in adj:
         if key not in new_d:
             new_d[key] = []
-        for city,dist in d[key]:
+        for city,dist in adj[key]:
             new_d[key].append((city,dist))
             if city not in new_d:
                 new_d[city] = [(key,dist)]
@@ -438,6 +519,11 @@ if __name__ == "__main__":
     for i in new_d:
         for j in new_d:
             if i!=j:
-                shortest_path_problem = ShortestPathProblem(new_d, i, j)
-                depth_first_search(shortest_path_problem)
+                shortest_path_problem = ShortestPathInformedProblem(new_d, i, j,
+                                                                    spherical(
+                                                                        coords,j
+                                                                    ))
+                recursive_best_first_search(shortest_path_problem)
             print("\n")
+    # shortest_path_problem = ShortestPathInformedProblem(new_d, "vancouver", "sanAntonio", spherical(coords,"sanAntonio"))
+    # recursive_best_first_search(shortest_path_problem)
