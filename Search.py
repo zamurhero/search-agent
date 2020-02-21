@@ -1,8 +1,9 @@
+from math import sqrt, cos, pi
 from abc import ABC, abstractmethod
 from heapq import heappush, heappop
 import sys
 sys.setrecursionlimit(10000)
-from road_data import adj, coords, spherical
+from road_data import adj, coords, spherical, euclidean, my_heuristic
 from copy import deepcopy
 class Problem(ABC):
     """ Abstract class for a Search Problem.
@@ -297,8 +298,7 @@ class HashPriorityQueue:
 
     def insert(self, node, priority):
         """ inserts a node into the queue according to its priority """
-        heappush(self.queue, (priority, node)) #heappush maintains a minheap
-                                                #for maxheap -> negate priority
+        heappush(self.queue, (priority, node))
         self.hash[node.state] = node.path_cost
 
     def cost(self, state):
@@ -481,7 +481,9 @@ def recursive_best_first_search(problem):
             return solution(node), -1
         successors = []
         for action in problem.actions(node.state):
-            successors.append(child_node(problem, node, action))
+            child = child_node(problem, node, action)
+            if node.parent==None or child.state != node.parent.state:
+                successors.append(child_node(problem, node, action))
         if not successors:
             return ("failure", float('inf'))
         for s in successors:
@@ -505,7 +507,6 @@ def recursive_best_first_search(problem):
     print(rbfs(problem, Node(problem.initial_state, problem=problem), float('inf'))[0])
 
 if __name__ == "__main__":
-    # d = {'a':[('b',1),('d',1),('e',1)], 'b':[('a',1),('c',1),('d',1)], 'c':[('b',1)], 'd':[('b',1),('a',1)], 'e':[('a',1)]}
     new_d = dict()
     for key in adj:
         if key not in new_d:
@@ -520,10 +521,10 @@ if __name__ == "__main__":
         for j in new_d:
             if i!=j:
                 shortest_path_problem = ShortestPathInformedProblem(new_d, i, j,
-                                                                    spherical(
-                                                                        coords,j
+                                                                    my_heuristic(
+                                                                        coords,j, new_d
                                                                     ))
                 recursive_best_first_search(shortest_path_problem)
             print("\n")
-    # shortest_path_problem = ShortestPathInformedProblem(new_d, "vancouver", "sanAntonio", spherical(coords,"sanAntonio"))
+    # shortest_path_problem = ShortestPathInformedProblem(new_d, "boston", "japan", my_heuristic(coords,"japan",new_d))
     # recursive_best_first_search(shortest_path_problem)

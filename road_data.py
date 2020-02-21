@@ -1,4 +1,4 @@
-from math import sqrt, cos
+from math import sqrt, cos, pi
 adj = {
     "albanyNY": [("montreal",226), ("boston",166), ("rochester",148)],
     "albanyGA": [("tallahassee",120), ("macon",106)],
@@ -61,7 +61,7 @@ adj = {
     "orlando": [("westPalmBeach",168), ("tampa",84)],
     "ottawa": [("toronto",269)],
     "pensacola": [("tallahassee",120)],
-    "philadelphia": [("pittsburgh",319), ("newYork",101), ("uk1",3548)],
+    "philadelphia": [("pittsburgh",319), ("newYork",101), ("uk1",3548), ("uk2",3548)],
     "phoenix":  [("tucson",117), ("yuma",178)],
     "pointReyes": [("redding",215),  ("sacramento",115)],
     "portland": [("seattle",174), ("salem",47)],
@@ -190,8 +190,11 @@ coords = {
     "yuma": (32.69, 114.62)
 }
 
+def get_neighbours(city, roadmap):
+    return [neighbour for neighbour,_ in roadmap[city]]
+
 def euclidean(coords, goal):
-    """ Returns the euclidean distance between two cities """
+    """ Returns the euclidean distance heuristic for each city """
     eucl_map = dict()
     (x2, y2) = coords[goal]
     for city in coords:
@@ -200,11 +203,36 @@ def euclidean(coords, goal):
     return eucl_map
 
 def spherical(coords, goal):
-    """ Returns the spherical distance between two cities """
+    """ Returns the spherical distance heuristic for each city """
     sph_map = dict()
     (x2, y2) = coords[goal]
     for city in coords:
         (x1, y1) = coords[city]
         sph_map[city] = sqrt((69.5 * (x1 - x2))**2 + 
-                             (69.5 * cos((x1 + x2)/360 * 3.14) * (y1 - y2))**2)
+                             (69.5 * cos((x1 + x2)/360 * pi) * (y1 - y2))**2)
     return sph_map
+
+def my_heuristic(coords, goal, roadmap):
+    """ Returns the value of my heuristic for each city """
+    heur_map = dict()
+    (x3, y3) = coords[goal]
+    for city in coords:
+        if city == goal:
+            heur_map[city] = 0
+            continue
+        (x1, y1) = coords[city]
+        neighbours  = get_neighbours(city, roadmap)
+        heur_map[city] = float('inf')
+        for neighbour in neighbours:
+            (x2, y2) = coords[neighbour]
+            city_neigh_dist = sqrt((69.5 * (x1 - x2))**2 + 
+                                   (69.5 * cos((x1 + x2)/360 * pi) * 
+                                    (y1 - y2))**2)
+            neigh_goal_dist =  sqrt((69.5 * (x3 - x2))**2 + 
+                                   (69.5 * cos((x3 + x2)/360 * pi) * 
+                                    (y3 - y2))**2)
+            total_dist = city_neigh_dist + neigh_goal_dist
+            heur_map[city] = min(heur_map[city], total_dist)
+        # heur_map[city] = max(heur_map[city], sqrt((69.5 * (x1 - x3))**2 + 
+        #                      (69.5 * cos((x1 + x3)/360 * pi) * (y1 - y3))**2))
+    return heur_map
