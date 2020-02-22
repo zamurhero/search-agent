@@ -472,20 +472,23 @@ def a_star_search(problem):
 def recursive_best_first_search(problem):
     """ Returns a solution, or failure. """
 
-    def rbfs(problem, node, f_limit):
+    def rbfs(problem, node, f_limit, num_nodes_exp, curr_q_size, max_q_size):
         """ Helper function for recursion.
 
         Returns a solution, or failure and a new f-cost limit
         """
+        num_nodes_exp += 1
         if problem.goal_test(node.state):
-            return solution(node), -1
+            return node, -1, num_nodes_exp, max_q_size
         successors = []
         for action in problem.actions(node.state):
             child = child_node(problem, node, action)
             if node.parent==None or child.state != node.parent.state:
                 successors.append(child_node(problem, node, action))
+        curr_q_size += len(successors)
+        max_q_size = max(max_q_size, curr_q_size)
         if not successors:
-            return ("failure", float('inf'))
+            return "failure", float('inf'), num_nodes_exp, max_q_size
         for s in successors:
             s.f = max(s.path_cost + problem.heuristic(s.state), node.f)
         while True:
@@ -495,36 +498,48 @@ def recursive_best_first_search(problem):
                     min_f = s.f
                     best = s
             if best.f > f_limit:
-                return ("failure", best.f)
+                return "failure", best.f, num_nodes_exp, max_q_size
             alternative = float('inf')
             for s in successors:
                 if s.f < alternative and s.f >= min_f:
                     alternative = s.f
-            (result, best.f) = rbfs(problem, best, min(f_limit, alternative))
+            result, best.f, num_nodes_exp, max_q_size = rbfs(problem, best, min(f_limit, alternative), num_nodes_exp, curr_q_size, max_q_size)
             if result != "failure":
-                return result, best.f
+                return result, best.f, num_nodes_exp, max_q_size
 
-    print(rbfs(problem, Node(problem.initial_state, problem=problem), float('inf'))[0])
+    num_nodes_exp = 0
+    curr_q_size = 0
+    max_q_size = 0
+    result, new_f_limit, num_nodes_exp, max_q_size = rbfs(problem, Node(problem.initial_state, problem=problem), float('inf'), num_nodes_exp, curr_q_size, max_q_size)
+    print(num_nodes_exp)
+    print(max_q_size)
+    print(result.path_cost)
+    print(solution(result))
 
 if __name__ == "__main__":
-    new_d = dict()
+    full_adj_map = dict()
     for key in adj:
-        if key not in new_d:
-            new_d[key] = []
+        if key not in full_adj_map:
+            full_adj_map[key] = []
         for city,dist in adj[key]:
-            new_d[key].append((city,dist))
-            if city not in new_d:
-                new_d[city] = [(key,dist)]
+            full_adj_map[key].append((city,dist))
+            if city not in full_adj_map:
+                full_adj_map[city] = [(key,dist)]
             else:
-                new_d[city].append((key,dist))
-    for i in new_d:
-        for j in new_d:
-            if i!=j:
-                shortest_path_problem = ShortestPathInformedProblem(new_d, i, j,
-                                                                    my_heuristic(
-                                                                        coords,j, new_d
-                                                                    ))
-                recursive_best_first_search(shortest_path_problem)
-            print("\n")
-    # shortest_path_problem = ShortestPathInformedProblem(new_d, "boston", "japan", my_heuristic(coords,"japan",new_d))
-    # recursive_best_first_search(shortest_path_problem)
+                full_adj_map[city].append((key,dist))
+    source = sys.argv[3]
+    destination = sys.argv[4]
+    if int(sys.argv[2]) == 0:
+        heuristic_map = spherical(coords, destination)
+    else:
+        heuristic_map = my_heuristic(coords, destination, full_adj_map)
+    if sys.argv[1]=="DFS":
+        shortest_path_problem = ShortestPathProblem(full_adj_map, source, destination)
+        algo = depth_first_search
+    else:
+        shortest_path_problem = ShortestPathInformedProblem(full_adj_map, source, destination, heuristic_map)
+        if sys.argv[1]=="RBFS":
+            algo = recursive_best_first_search
+        else:
+            algo = a_star_search
+    algo(shortest_path_problem)
