@@ -186,6 +186,9 @@ class Node:
         else:
             self.f = None
 
+    def __lt__(self, other):
+        return True
+
 def child_node(problem, parent, action):
     """ Given parent node, child node.
     
@@ -292,7 +295,7 @@ class HashPriorityQueue:
 
     def pop(self):
         """ Returns node with highest priority """
-        priority, node = heappop(self.queue)
+        _, node = heappop(self.queue)
         del self.hash[node.state]
         return node
 
@@ -510,7 +513,7 @@ def recursive_best_first_search(problem):
     num_nodes_exp = 0
     curr_q_size = 0
     max_q_size = 0
-    result, new_f_limit, num_nodes_exp, max_q_size = rbfs(problem, Node(problem.initial_state, problem=problem), float('inf'), num_nodes_exp, curr_q_size, max_q_size)
+    result, _, num_nodes_exp, max_q_size = rbfs(problem, Node(problem.initial_state, problem=problem), float('inf'), num_nodes_exp, curr_q_size, max_q_size)
     print(num_nodes_exp)
     print(max_q_size)
     print(result.path_cost)
