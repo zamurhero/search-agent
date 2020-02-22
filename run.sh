@@ -118,10 +118,6 @@ for i in "${cities[@]}"
 do
     for j in "${cities[@]}"
     do
-        for algo in "${algos[@]}"
-        do
-            python3 Search.py algo 0 "$i" "$j"
-            python3 Search.py algo 1 "$i" "$j"
-        done
+        python3 Search.py DFS 0 "$i" "$j" >> dfs_stats.csv
     done
 done

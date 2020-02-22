@@ -376,12 +376,8 @@ def depth_first_search(problem):
         for action in problem.actions(node.state):
             child = child_node(problem, node, action)
             if child.state not in explored and child.state not in frontier:
-                is_exp = True
                 if problem.goal_test(child.state):
-                    print(num_nodes_exp)
-                    print(max_qsize)
-                    print(child.path_cost)
-                    print(solution(child))
+                    output(num_nodes_exp, max_qsize, child.path_cost, solution(child))
                     return
                 frontier.insert(child)
                 max_qsize = max(max_qsize, len(frontier))
@@ -454,10 +450,7 @@ def a_star_search(problem):
             return
         node = frontier.pop()
         if problem.goal_test(node.state):
-            print(num_nodes_exp)
-            print(max_qsize)
-            print(node.path_cost)
-            print(solution(node))
+            output(num_nodes_exp, max_qsize,node.path_cost, solution(node))
             return
         explored.add(node.state)
         num_nodes_exp += 1
@@ -514,10 +507,10 @@ def recursive_best_first_search(problem):
     curr_q_size = 0
     max_q_size = 0
     result, _, num_nodes_exp, max_q_size = rbfs(problem, Node(problem.initial_state, problem=problem), float('inf'), num_nodes_exp, curr_q_size, max_q_size)
-    print(num_nodes_exp)
-    print(max_q_size)
-    print(result.path_cost)
-    print(solution(result))
+    output(num_nodes_exp, max_q_size, result.path_cost, solution(result))
+
+def output(num_nodes_exp, max_q_size, path_cost, solution):
+    print(str(num_nodes_exp)+","+str(max_q_size))
 
 if __name__ == "__main__":
     full_adj_map = dict()
